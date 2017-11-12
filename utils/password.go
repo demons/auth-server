@@ -24,7 +24,8 @@ func HashPasswordWithSalt(password string) (string, string, error) {
 	// Последовательность случайных байт для соли
 	salt := make([]byte, 128)
 	rand.Read(salt)
-	saltStr := strings.TrimRight(base64.StdEncoding.EncodeToString(salt), "=")
+
+	saltStr := base64.StdEncoding.EncodeToString(salt)
 
 	// Хэшируем пароль
 	hash, err := HashPassword(password, salt)
@@ -41,7 +42,7 @@ func VerifyPassword(hash, salt, password string) error {
 		return errors.New("Incorrect password")
 	}
 	// Декодируем соль в массив байтов
-	s, err := base64.StdEncoding.DecodeString(salt + "==")
+	s, err := base64.StdEncoding.DecodeString(salt)
 	if err != nil {
 		return errors.New("Bad salt")
 	}
