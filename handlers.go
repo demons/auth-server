@@ -8,8 +8,8 @@ import (
 
 	"audiolang.com/auth-server/tokgen"
 
-	"audiolang.com/auth-server/db"
 	"audiolang.com/auth-server/models"
+	"audiolang.com/auth-server/store"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -34,10 +34,10 @@ func HandleToken(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	ctx := context.Background()
 
 	// Устанавливаем в context хранилище пользователей
-	ctx = db.NewContextWithUserStore(ctx, userStore)
+	ctx = store.NewContextWithUserStore(ctx, userDb)
 
 	// Устанавливаем в context хранилище refresh токенов
-	ctx = db.NewContextWithRefreshTokenStore(ctx, refreshTokenStore)
+	ctx = store.NewContextWithRefreshTokenStore(ctx, refreshTokenDb)
 
 	// Инициализируем нового пользователя
 	var user *models.User

@@ -6,9 +6,8 @@ import (
 	"log"
 	"net/http"
 
+	"audiolang.com/auth-server/store"
 	"audiolang.com/auth-server/tokgen"
-
-	"audiolang.com/auth-server/db"
 
 	"audiolang.com/auth-server/models"
 	"audiolang.com/auth-server/oauth"
@@ -57,7 +56,7 @@ func grantTypePassword(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	}
 
 	// Вытаскиваем user store из ctx
-	userStore, ok := db.FromContextWithUserStore(ctx)
+	userStore, ok := store.FromContextWithUserStore(ctx)
 	if ok == false {
 		log.Printf("User store is not found")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -129,7 +128,7 @@ func grantTypeCode(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Вытаскиваем user store из ctx
-	userStore, ok := db.FromContextWithUserStore(ctx)
+	userStore, ok := store.FromContextWithUserStore(ctx)
 	if ok == false {
 		log.Printf("User store is not found")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -173,7 +172,7 @@ func grantTypeRefresh(ctx context.Context, w http.ResponseWriter, r *http.Reques
 	}
 
 	// Вытаскиваем user store из ctx
-	userStore, ok := db.FromContextWithUserStore(ctx)
+	userStore, ok := store.FromContextWithUserStore(ctx)
 	if ok == false {
 		log.Printf("User store is not found")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)

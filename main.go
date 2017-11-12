@@ -9,7 +9,7 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 
-	"audiolang.com/auth-server/db"
+	"audiolang.com/auth-server/store"
 	"audiolang.com/auth-server/tokgen"
 
 	// Driver postgres
@@ -17,11 +17,11 @@ import (
 )
 
 var (
-	database          *sql.DB
-	userStore         *db.User
-	refreshTokenStore *db.RefreshToken
-	jwtGen            *tokgen.JwtAccessGenerate
-	jwtCnf            *tokgen.Config
+	database       *sql.DB
+	userDb         store.UserStore
+	refreshTokenDb store.RefreshTokenStore
+	jwtGen         *tokgen.JwtAccessGenerate
+	jwtCnf         *tokgen.Config
 )
 
 func init() {
@@ -73,8 +73,8 @@ func main() {
 
 	// return
 
-	userStore = db.NewUserStore(database)
-	refreshTokenStore = db.NewRefreshTokenStore(database)
+	userDb = store.NewUserDb(database)
+	refreshTokenDb = store.NewRefreshTokenDb(database)
 	jwtGen = jwtCnf.New()
 
 	router := httprouter.New()

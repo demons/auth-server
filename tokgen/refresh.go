@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"audiolang.com/auth-server/db"
 	"audiolang.com/auth-server/models"
+	"audiolang.com/auth-server/store"
 )
 
 func generateRefreshToken() *models.RefreshToken {
@@ -52,7 +52,7 @@ func NewRefreshToken(ctx context.Context) (*models.RefreshToken, error) {
 	refreshToken.UserID = user.ID
 
 	// Извлекаем из контекста refreshTokenStore
-	refreshTokenStore, ok := db.FromContextWithRefreshTokenStore(ctx)
+	refreshTokenStore, ok := store.FromContextWithRefreshTokenStore(ctx)
 	if ok == false {
 		log.Println("Refresh store is not found in context")
 		return nil, errors.New("Refresh store is not found in context")
@@ -72,7 +72,7 @@ func NewRefreshToken(ctx context.Context) (*models.RefreshToken, error) {
 func ChangeRefreshToken(ctx context.Context, token string) (*models.RefreshToken, error) {
 
 	// Извлекаем из контекста refreshTokenStore
-	refreshTokenStore, ok := db.FromContextWithRefreshTokenStore(ctx)
+	refreshTokenStore, ok := store.FromContextWithRefreshTokenStore(ctx)
 	if ok == false {
 		log.Println("Refresh store is not found in context")
 		return nil, errors.New("Refresh store is not found in context")

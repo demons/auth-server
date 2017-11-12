@@ -1,26 +1,25 @@
-package db
+package store
 
 import (
-	"context"
 	"database/sql"
 
 	"audiolang.com/auth-server/models"
 )
 
-// RefreshToken хранилище для работы с пользователями
-type RefreshToken struct {
+// RefreshTokenDb хранилище для работы с пользователями
+type RefreshTokenDb struct {
 	db *sql.DB
 }
 
-// NewRefreshTokenStore конструктор
-func NewRefreshTokenStore(database *sql.DB) *RefreshToken {
-	return &RefreshToken{
+// NewRefreshTokenDb конструктор
+func NewRefreshTokenDb(database *sql.DB) *RefreshTokenDb {
+	return &RefreshTokenDb{
 		db: database,
 	}
 }
 
 // Insert добавляет новый refresh token в базу данных
-func (r *RefreshToken) Insert(refToken *models.RefreshToken) error {
+func (r *RefreshTokenDb) Insert(refToken *models.RefreshToken) error {
 	_, err := r.db.Exec("INSERT INTO reftoks (user_id, token, expires) VALUES ($1, $2, $3)", refToken.UserID, refToken.Token, refToken.Expires)
 	if err != nil {
 		return err
@@ -30,7 +29,7 @@ func (r *RefreshToken) Insert(refToken *models.RefreshToken) error {
 }
 
 // Update обновляет refresh token с указанным token
-func (r *RefreshToken) Update(token string, refToken *models.RefreshToken) (*models.RefreshToken, error) {
+func (r *RefreshTokenDb) Update(token string, refToken *models.RefreshToken) (*models.RefreshToken, error) {
 	// Копируем старый токен, вернем пользователю новый токен
 	updatedRefresh := *refToken
 
@@ -54,7 +53,7 @@ func (r *RefreshToken) Update(token string, refToken *models.RefreshToken) (*mod
 // }
 
 // FindByField выполняет поиск по указанному полю
-func (r *RefreshToken) FindByField(field string, value interface{}) (*models.RefreshToken, error) {
+func (r *RefreshTokenDb) FindByField(field string, value interface{}) (*models.RefreshToken, error) {
 	var refresh models.RefreshToken
 	err := r.db.QueryRow("SELECT user_id, token, expires, created_at, updated_at FROM reftoks WHERE "+field+"=$1", value).Scan(&refresh.UserID, &refresh.Token, &refresh.Expires, &refresh.CreatedAt, &refresh.UpdatedAt)
 	if err != nil {
@@ -65,24 +64,11 @@ func (r *RefreshToken) FindByField(field string, value interface{}) (*models.Ref
 }
 
 // FindByUserID returns a refresh by userID
-func (r *RefreshToken) FindByUserID(userID int64) (*models.RefreshToken, error) {
+func (r *RefreshTokenDb) FindByUserID(userID int64) (*models.RefreshToken, error) {
 	return r.FindByField("user_id", userID)
 }
 
 // FindByRefreshToken returns a refresh by RefreshToken
-func (r *RefreshToken) FindByRefreshToken(token string) (*models.RefreshToken, error) {
+func (r *RefreshTokenDb) FindByRefreshToken(token string) (*models.RefreshToken, error) {
 	return r.FindByField("token", token)
-}
-
-// NewContextWithRefreshTokenStore returns a new Context carrying refresh store.
-func NewContextWithRefreshTokenStore(ctx context.Context, refresh *RefreshToken) context.Context {
-	return context.WithValue(ctx, refreshStoreKey, refresh)
-}
-
-// FromContextWithRefreshTokenStore extracts the refresh context from ctx, if present.
-func FromContextWithRefreshTokenStore(ctx context.Context) (*RefreshToken, bool) {
-	// ctx.Value returns nil if ctx has no value for the key;
-	// the RefreshToken type assertion returns ok=false for nil.
-	refresh, ok := ctx.Value(refreshStoreKey).(*RefreshToken)
-	return refresh, ok
 }
