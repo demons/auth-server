@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"strings"
@@ -16,6 +17,22 @@ func HashPassword(password string, salt []byte) (string, error) {
 	}
 
 	return strings.TrimRight(base64.StdEncoding.EncodeToString(hash), "="), nil
+}
+
+// HashPasswordWithSalt создает хэш пароля, возвращает hash, salt
+func HashPasswordWithSalt(password string) (string, string, error) {
+	// Последовательность случайных байт для соли
+	salt := make([]byte, 128)
+	rand.Read(salt)
+	saltStr := strings.TrimRight(base64.StdEncoding.EncodeToString(salt), "=")
+
+	// Хэшируем пароль
+	hash, err := HashPassword(password, salt)
+	if err != nil {
+		return "", "", err
+	}
+
+	return hash, saltStr, nil
 }
 
 // VerifyPassword проверяем корректный ли пароль
