@@ -39,18 +39,18 @@ import (
 
 // GrantTypePassword аутентификация пользователя по паролю
 func grantTypePassword(ctx context.Context, w http.ResponseWriter, r *http.Request) (*models.User, bool) {
-	// Извлекаем из тела запроса username и password
-	username := r.FormValue("username")
+	// Извлекаем из тела запроса email и password
+	email := r.FormValue("email")
 	password := r.FormValue("password")
 
-	if username == "" {
-		log.Println("Username is not found")
-		http.Error(w, "Username is required", http.StatusBadRequest)
+	if email == "" {
+		log.Println("Email is required")
+		http.Error(w, "Email is required", http.StatusBadRequest)
 		return nil, false
 	}
 
 	if password == "" {
-		log.Printf("Password is not found: %s\n", username)
+		log.Printf("Password is required: %s\n", email)
 		http.Error(w, "Password is required", http.StatusBadRequest)
 		return nil, false
 	}
@@ -64,8 +64,16 @@ func grantTypePassword(ctx context.Context, w http.ResponseWriter, r *http.Reque
 	}
 
 	// Получаем информацию о пользователе из базы данных
-	user, err := userStore.FindByEmail(username)
+	user, err := userStore.FindByEmail(email)
 	if err != nil {
+		// Произошла какая-то ошибка при поиске
+		log.Printf("Error finding a user: %v\n", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return nil, false
+	}
+
+	// Пользователь не найден
+	if user == nil {
 		log.Printf("User is not found: %v\n", err)
 		http.Error(w, "Incorrect login or password", http.StatusBadRequest)
 		return nil, false
@@ -190,6 +198,12 @@ func grantTypeRefresh(ctx context.Context, w http.ResponseWriter, r *http.Reques
 	// Получаем информацию о пользователе из базы данных
 	user, err := userStore.FindByUserID(updatedRefresh.UserID)
 	if err != nil {
+		log.Printf("Error finding user: %v\n", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return nil, nil, false
+	}
+
+	if user == nil {
 		log.Printf("User is not found: %v\n", err)
 		http.Error(w, "Access denied", http.StatusForbidden)
 		return nil, nil, false
