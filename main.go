@@ -66,13 +66,6 @@ func init() {
 
 func main() {
 
-	// salt := []byte{1, 2, 3, 4}
-	// hash, _ := utils.HashPassword("1234", salt)
-	// fmt.Println("Hash:", hash)
-	// fmt.Println("Salt:", strings.TrimRight(base64.StdEncoding.EncodeToString(salt), "="))
-
-	// return
-
 	userDb = store.NewUserDb(database)
 	refreshTokenDb = store.NewRefreshTokenDb(database)
 	jwtGen = jwtCnf.New()
@@ -81,7 +74,7 @@ func main() {
 	router.POST("/token", HandleToken)
 
 	// Регистрация нового пользователя
-	// router.POST("/account/signup", HandleSignUp)
+	router.POST("/account/signup", HandleSignUp)
 
 	// Сброс пароля
 	// router.POST("/account/reset", HandleReset)

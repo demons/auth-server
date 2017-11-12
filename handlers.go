@@ -2,26 +2,88 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
 
 	"audiolang.com/auth-server/tokgen"
+	"audiolang.com/auth-server/utils"
 
 	"audiolang.com/auth-server/models"
 	"audiolang.com/auth-server/store"
 	"github.com/julienschmidt/httprouter"
 )
 
-// A very simple health check.
-// w.WriteHeader(http.StatusOK)
-// w.Header().Set("Content-Type", "application/json")
+// HandleSignUp регистрация нового пользователя
+func HandleSignUp(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	email := r.FormValue("email")
+	password := r.FormValue("password")
 
-// In the future we could report back on the status of our DB, or our cache
-// (e.g. Redis) by performing a simple PING, and include them in the response.
-// io.WriteString(w, `{"alive": true}`)
+	if email == "" {
+		log.Println("Email is empty")
+		http.Error(w, "Email is required", http.StatusBadRequest)
+		return
+	}
 
-// Коментарии. Можно написать функцию loginWithPasswordHandler(w http.WriterResponse, login, password string)
+	if password == "" {
+		log.Println("Password is empty")
+		http.Error(w, "Password is required", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем email на корректность
+	err := utils.VerifyEmailFormat(email)
+	if err != nil {
+		log.Printf("Invalid email format: %v", err)
+		http.Error(w, "Invalid email format", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем существует ли пользователь с таким username
+	searchUser, err := userDb.FindByEmail(email)
+	if err != nil {
+		log.Printf("Error finding user: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if searchUser != nil {
+		// Такой пользователь уже существует
+		log.Println("User already exists")
+		http.Error(w, "User already exists", http.StatusBadRequest)
+		return
+	}
+
+	// Создаем хэш пароля
+	hash, salt, err := utils.HashPasswordWithSalt(password)
+	if err != nil {
+		log.Printf("Error creating hash password: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	newUser := models.User{
+		Email:    sql.NullString{String: email, Valid: true},
+		Hash:     sql.NullString{String: hash, Valid: true},
+		Salt:     sql.NullString{String: salt, Valid: true},
+		IsActive: true,
+		IsSocial: false,
+	}
+
+	// Создаем нового пользователя
+	_, err = userDb.Insert(&newUser)
+	if err != nil {
+		log.Printf("Error creating a user: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// TODO: Нужно отправить письмо с подтверждением email, пользователю на почту
+
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte("User registered successfully"))
+}
 
 // HandleToken returns access token
 func HandleToken(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
