@@ -73,9 +73,25 @@ func HandleSignUp(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 
 	// Создаем нового пользователя
-	_, err = userDb.Insert(&newUser)
+	userID, err := userDb.Insert(&newUser)
 	if err != nil {
 		log.Printf("Error creating a user: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	newUser.ID = userID
+
+	ctx := context.Background()
+
+	// Устанавливаем в context пользователея
+	ctx = models.NewContextWithUser(ctx, &newUser)
+
+	// Устанавливаем в context хранилище временных токенов
+	ctx = store.NewContextWithTokenStore(ctx, tempTokenDb)
+
+	token, err := tempTokenGenerator.CreateToken(ctx)
+	if err != nil {
+		log.Printf("Error creating a temp token: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -83,7 +99,7 @@ func HandleSignUp(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// TODO: Нужно отправить письмо с подтверждением email, пользователю на почту
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("User registered successfully"))
+	w.Write([]byte("User registered successfully. " + token.Token))
 }
 
 // HandleToken returns access token

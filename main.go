@@ -18,12 +18,14 @@ import (
 )
 
 var (
-	database       *sql.DB
-	userDb         store.UserStore
-	refreshTokenDb store.TokenStore
-	jwtGen         *tokgen.JwtAccessGenerate
-	jwtCnf         *tokgen.Config
-	tokenGenerator *tokgen.TokenGenerator
+	database           *sql.DB
+	userDb             store.UserStore
+	refreshTokenDb     store.TokenStore
+	tempTokenDb        store.TokenStore
+	jwtGen             *tokgen.JwtAccessGenerate
+	jwtCnf             *tokgen.Config
+	tokenGenerator     *tokgen.TokenGenerator
+	tempTokenGenerator *tokgen.TokenGenerator
 )
 
 func init() {
@@ -80,8 +82,11 @@ func main() {
 
 	userDb = store.NewUserDb(database)
 	refreshTokenDb = store.NewRefreshTokenDb(database)
+	tempTokenDb = store.NewTempTokenDb(database)
+
 	jwtGen = jwtCnf.New()
 	tokenGenerator = tokgen.NewTokenGenerator(time.Duration(time.Hour * 24 * 10))
+	tempTokenGenerator = tokgen.NewTokenGenerator(time.Duration(time.Hour * 24))
 
 	router := httprouter.New()
 	router.POST("/token", HandleToken)
