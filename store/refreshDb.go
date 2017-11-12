@@ -39,17 +39,6 @@ func (r *RefreshTokenDb) Update(token string, refToken *models.Token) error {
 	return nil
 }
 
-// Deactivate деактивирует токен
-// func (r *RefreshToken) Deactivate(token string) (int64, error) {
-// 	var userID int64
-// 	err := r.db.QueryRow("UPDATE reftoks SET is_active=$1 WHERE token=$2 AND is_active<>false RETURNING user_id", false, token).Scan(&userID)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-
-// 	return userID, nil
-// }
-
 // FindByField выполняет поиск по указанному полю
 func (r *RefreshTokenDb) FindByField(field string, value interface{}) (*models.Token, error) {
 	var refresh models.Token
@@ -73,7 +62,7 @@ func (r *RefreshTokenDb) FindByUserID(userID int64) (*models.Token, error) {
 	return r.FindByField("user_id", userID)
 }
 
-// FindByRefreshToken returns a refresh by RefreshToken
+// FindByToken returns a refresh by RefreshToken
 func (r *RefreshTokenDb) FindByToken(token string) (*models.Token, error) {
 	return r.FindByField("token", token)
 }
