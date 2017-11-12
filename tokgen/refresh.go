@@ -2,45 +2,25 @@ package tokgen
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
 	"errors"
-	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"audiolang.com/auth-server/models"
 	"audiolang.com/auth-server/store"
 )
 
-func generateRefreshToken() *models.RefreshToken {
-	// Последовательность случайных байт
-	buf := make([]byte, 128)
-	rand.Read(buf)
-
-	// Хэшируем строку
-	hash := sha256.New()
-	hash.Write(buf)
-
-	// refreshTokenString := strings.ToUpper(strings.TrimRight(base64.URLEncoding.EncodeToString(hash.Sum(nil)), "="))
-	// Конвертируем в hex строку
-	refreshTokenString := strings.ToLower(fmt.Sprintf("%x", hash.Sum(nil)))
-
-	// Формируем новый refresh token
-	refreshToken := models.RefreshToken{
-		Token:   refreshTokenString,
-		Expires: time.Now().Add(time.Hour * 24 * 10).Unix(), // 10 дней
+func createRefreshToken(userID int64) *models.RefreshToken {
+	// Создаем новый refresh token
+	return &models.RefreshToken{
+		UserID:  userID,
+		Token:   generateToken(),
+		Expires: time.Now().Add(time.Hour * 24 * 10).Unix(), // Токен истекает через 10 дней
 	}
-
-	return &refreshToken
 }
 
 // NewRefreshToken генерирует новый refresh token
 func NewRefreshToken(ctx context.Context) (*models.RefreshToken, error) {
-	// Генерируем новый refresh token
-	refreshToken := generateRefreshToken()
-
 	// Извлекаем из контекста пользователя
 	user, ok := models.FromContextWithUser(ctx)
 	if ok == false {
@@ -48,15 +28,15 @@ func NewRefreshToken(ctx context.Context) (*models.RefreshToken, error) {
 		return nil, errors.New("User is not found in context")
 	}
 
-	// Прописываем userID, которому будет принадлежать токен
-	refreshToken.UserID = user.ID
-
 	// Извлекаем из контекста refreshTokenStore
 	refreshTokenStore, ok := store.FromContextWithRefreshTokenStore(ctx)
 	if ok == false {
 		log.Println("Refresh store is not found in context")
 		return nil, errors.New("Refresh store is not found in context")
 	}
+
+	// Создаем новый токен
+	refreshToken := createRefreshToken(user.ID)
 
 	// Добавляем токен в базу данных
 	err := refreshTokenStore.Insert(refreshToken)
@@ -99,11 +79,11 @@ func ChangeRefreshToken(ctx context.Context, token string) (*models.RefreshToken
 		return nil, errors.New("Refresh token has expired")
 	}
 
-	// Генерируем новый refresh token
-	refresh := generateRefreshToken()
+	// Создаем новый токен
+	refreshToken := createRefreshToken(oldRefreshToken.UserID)
 
 	// Обновляем старый, активный токен
-	updatedRefresh, err := refreshTokenStore.Update(token, refresh)
+	updatedRefresh, err := refreshTokenStore.Update(token, refreshToken)
 	if err != nil {
 		log.Printf("Error updating refresh token: %v\n", err)
 		return nil, errors.New("Error updating refresh token")
