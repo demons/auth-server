@@ -54,6 +54,16 @@ func init() {
 		log.Fatalf("Error executing sql: %v\n", err)
 	}
 
+	// Создадим таблицу временных токенов, если она отсутствует
+	query, err = ioutil.ReadFile("./sql/create_tokens_table.sql")
+	if err != nil {
+		log.Fatalf("Error reading sql: %v\n", err)
+	}
+	_, err = database.Exec(string(query))
+	if err != nil {
+		log.Fatalf("Error executing sql: %v\n", err)
+	}
+
 	// Считываем приватный ключ
 	pKey, err := ioutil.ReadFile("./secrets/app.rsa")
 	if err != nil {
