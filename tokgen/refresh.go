@@ -81,14 +81,22 @@ func ChangeRefreshToken(ctx context.Context, token string) (*models.RefreshToken
 	// Проверяем не истек ли токен
 	oldRefreshToken, err := refreshTokenStore.FindByRefreshToken(token)
 	if err != nil {
+		// Произошла какая-то ошибка при поиске токена
 		log.Printf("Error finding refresh token: %v\n", err)
 		return nil, errors.New("Error finding refresh token")
 	}
+
+	if oldRefreshToken == nil {
+		// Токен не найден в хранилище
+		log.Println("Refresh token is not found")
+		return nil, errors.New("Refresh token is not found")
+	}
+
 	now := time.Now().Unix()
 	if now >= oldRefreshToken.Expires {
 		// Токен истек
-		log.Printf("The token has expired: now: %d, token_exp: %d\n", now, oldRefreshToken.Expires)
-		return nil, errors.New("The token has expired")
+		log.Printf("Refresh token has expired: now: %d, token_exp: %d\n", now, oldRefreshToken.Expires)
+		return nil, errors.New("Refresh token has expired")
 	}
 
 	// Генерируем новый refresh token
