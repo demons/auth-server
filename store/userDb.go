@@ -32,8 +32,15 @@ func (u *UserDb) Insert(user *models.User) (int64, error) {
 // FindByField выполняет поиск по указанному полю
 func (u *UserDb) FindByField(field string, value interface{}) (*models.User, error) {
 	var user models.User
+
 	err := u.db.QueryRow("SELECT id, email, hash, salt, sid, name, is_social, is_active, is_verified FROM users WHERE "+field+"=$1", value).Scan(&user.ID, &user.Email, &user.Hash, &user.Salt, &user.SID, &user.Name, &user.IsSocial, &user.IsActive, &user.IsVerified)
-	if err != nil {
+
+	switch {
+	case err == sql.ErrNoRows:
+		// Элемент не найден
+		return nil, nil
+	case err != nil:
+		// Произошла какая-то ошибка
 		return nil, err
 	}
 

@@ -55,8 +55,15 @@ func (r *RefreshTokenDb) Update(token string, refToken *models.RefreshToken) (*m
 // FindByField выполняет поиск по указанному полю
 func (r *RefreshTokenDb) FindByField(field string, value interface{}) (*models.RefreshToken, error) {
 	var refresh models.RefreshToken
+
 	err := r.db.QueryRow("SELECT user_id, token, expires, created_at, updated_at FROM reftoks WHERE "+field+"=$1", value).Scan(&refresh.UserID, &refresh.Token, &refresh.Expires, &refresh.CreatedAt, &refresh.UpdatedAt)
-	if err != nil {
+
+	switch {
+	case err == sql.ErrNoRows:
+		// Элемент не найден
+		return nil, nil
+	case err != nil:
+		// Произошла какая-то ошибка
 		return nil, err
 	}
 
