@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 
@@ -19,9 +20,10 @@ import (
 var (
 	database       *sql.DB
 	userDb         store.UserStore
-	refreshTokenDb store.RefreshTokenStore
+	refreshTokenDb store.TokenStore
 	jwtGen         *tokgen.JwtAccessGenerate
 	jwtCnf         *tokgen.Config
+	tokenGenerator *tokgen.TokenGenerator
 )
 
 func init() {
@@ -69,6 +71,7 @@ func main() {
 	userDb = store.NewUserDb(database)
 	refreshTokenDb = store.NewRefreshTokenDb(database)
 	jwtGen = jwtCnf.New()
+	tokenGenerator = tokgen.NewTokenGenerator(time.Duration(time.Hour * 24 * 10))
 
 	router := httprouter.New()
 	router.POST("/token", HandleToken)

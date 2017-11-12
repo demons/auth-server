@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"audiolang.com/auth-server/tokgen"
+
 	"audiolang.com/auth-server/utils"
 
 	"audiolang.com/auth-server/models"
@@ -99,11 +100,14 @@ func HandleToken(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	ctx = store.NewContextWithUserStore(ctx, userDb)
 
 	// Устанавливаем в context хранилище refresh токенов
-	ctx = store.NewContextWithRefreshTokenStore(ctx, refreshTokenDb)
+	ctx = store.NewContextWithTokenStore(ctx, refreshTokenDb)
+
+	// Устанавливаем в context генератор токенов
+	ctx = tokgen.NewContextWithTokenGenerator(ctx, tokenGenerator)
 
 	// Инициализируем нового пользователя
 	var user *models.User
-	var updatedRefresh *models.RefreshToken
+	var refreshToken *models.Token
 	var ok bool
 
 	switch grantType {
@@ -112,7 +116,7 @@ func HandleToken(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	case "code":
 		user, ok = grantTypeCode(ctx, w, r)
 	case "refresh":
-		user, updatedRefresh, ok = grantTypeRefresh(ctx, w, r)
+		user, refreshToken, ok = grantTypeRefresh(ctx, w, r)
 	default:
 		{
 			log.Println("This grant type is not supported")
@@ -143,18 +147,18 @@ func HandleToken(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	data.AccessToken = accessToken
 
 	// Если refresh token не существует (grant_type != refresh), то генерируем новый
-	if updatedRefresh == nil {
+	if refreshToken == nil {
 		// Генерируем новый refresh token
-		refresh, err := tokgen.NewRefreshToken(ctx)
+		newRefreshToken, err := tokenGenerator.CreateToken(ctx)
 		if err != nil {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return
 		}
-		data.RefreshToken = refresh.Token
-		data.RefreshExpires = refresh.Expires
+		data.RefreshToken = newRefreshToken.Token
+		data.RefreshExpires = newRefreshToken.Expires
 	} else {
-		data.RefreshToken = updatedRefresh.Token
-		data.RefreshExpires = updatedRefresh.Expires
+		data.RefreshToken = refreshToken.Token
+		data.RefreshExpires = refreshToken.Expires
 	}
 
 	// Формируем ответ

@@ -14,8 +14,8 @@ type key int
 // arbitrary.  If this package defined other context keys, they would have
 // different integer values.
 const (
-	userStoreKey    key = 0
-	refreshStoreKey key = 1
+	userStoreKey  key = 0
+	tokenStoreKey key = 1
 )
 
 // UserStore для работы с хранилищем пользователей
@@ -27,13 +27,13 @@ type UserStore interface {
 	FindBySID(string) (*models.User, error)
 }
 
-// RefreshTokenStore для работы с хранилищем refresh токенов
-type RefreshTokenStore interface {
-	Insert(*models.RefreshToken) error
-	Update(string, *models.RefreshToken) (*models.RefreshToken, error)
-	FindByField(string, interface{}) (*models.RefreshToken, error)
-	FindByUserID(int64) (*models.RefreshToken, error)
-	FindByRefreshToken(string) (*models.RefreshToken, error)
+// TokenStore для работы с хранилищем токенов
+type TokenStore interface {
+	Insert(*models.Token) error
+	Update(string, *models.Token) error
+	FindByField(string, interface{}) (*models.Token, error)
+	FindByUserID(int64) (*models.Token, error)
+	FindByToken(string) (*models.Token, error)
 }
 
 // NewContextWithUserStore returns a new Context carrying user store.
@@ -49,15 +49,15 @@ func FromContextWithUserStore(ctx context.Context) (UserStore, bool) {
 	return store, ok
 }
 
-// NewContextWithRefreshTokenStore returns a new Context carrying refresh store.
-func NewContextWithRefreshTokenStore(ctx context.Context, store RefreshTokenStore) context.Context {
-	return context.WithValue(ctx, refreshStoreKey, store)
+// NewContextWithTokenStore returns a new Context carrying token store.
+func NewContextWithTokenStore(ctx context.Context, store TokenStore) context.Context {
+	return context.WithValue(ctx, tokenStoreKey, store)
 }
 
-// FromContextWithRefreshTokenStore extracts the refresh context from ctx, if present.
-func FromContextWithRefreshTokenStore(ctx context.Context) (RefreshTokenStore, bool) {
+// FromContextWithTokenStore extracts the token store context from ctx, if present.
+func FromContextWithTokenStore(ctx context.Context) (TokenStore, bool) {
 	// ctx.Value returns nil if ctx has no value for the key;
 	// the RefreshToken type assertion returns ok=false for nil.
-	store, ok := ctx.Value(refreshStoreKey).(RefreshTokenStore)
+	store, ok := ctx.Value(tokenStoreKey).(TokenStore)
 	return store, ok
 }

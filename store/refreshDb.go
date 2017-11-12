@@ -19,7 +19,7 @@ func NewRefreshTokenDb(database *sql.DB) *RefreshTokenDb {
 }
 
 // Insert добавляет новый refresh token в базу данных
-func (r *RefreshTokenDb) Insert(refToken *models.RefreshToken) error {
+func (r *RefreshTokenDb) Insert(refToken *models.Token) error {
 	_, err := r.db.Exec("INSERT INTO reftoks (user_id, token, expires) VALUES ($1, $2, $3)", refToken.UserID, refToken.Token, refToken.Expires)
 	if err != nil {
 		return err
@@ -29,16 +29,14 @@ func (r *RefreshTokenDb) Insert(refToken *models.RefreshToken) error {
 }
 
 // Update обновляет refresh token с указанным token
-func (r *RefreshTokenDb) Update(token string, refToken *models.RefreshToken) (*models.RefreshToken, error) {
-	// Копируем старый токен, вернем пользователю новый токен
-	updatedRefresh := *refToken
+func (r *RefreshTokenDb) Update(token string, refToken *models.Token) error {
 
-	err := r.db.QueryRow("UPDATE reftoks SET token=$1, expires=$2, updated_at=(now() at time zone 'utc') WHERE token=$3 RETURNING user_id, updated_at", refToken.Token, refToken.Expires, token).Scan(&updatedRefresh.UserID, &updatedRefresh.UpdatedAt)
+	_, err := r.db.Exec("UPDATE reftoks SET token=$1, expires=$2, updated_at=(now() at time zone 'utc') WHERE token=$3", refToken.Token, refToken.Expires, token)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &updatedRefresh, nil
+	return nil
 }
 
 // Deactivate деактивирует токен
@@ -53,10 +51,10 @@ func (r *RefreshTokenDb) Update(token string, refToken *models.RefreshToken) (*m
 // }
 
 // FindByField выполняет поиск по указанному полю
-func (r *RefreshTokenDb) FindByField(field string, value interface{}) (*models.RefreshToken, error) {
-	var refresh models.RefreshToken
+func (r *RefreshTokenDb) FindByField(field string, value interface{}) (*models.Token, error) {
+	var refresh models.Token
 
-	err := r.db.QueryRow("SELECT user_id, token, expires, created_at, updated_at FROM reftoks WHERE "+field+"=$1", value).Scan(&refresh.UserID, &refresh.Token, &refresh.Expires, &refresh.CreatedAt, &refresh.UpdatedAt)
+	err := r.db.QueryRow("SELECT user_id, token, expires FROM reftoks WHERE "+field+"=$1", value).Scan(&refresh.UserID, &refresh.Token, &refresh.Expires)
 
 	switch {
 	case err == sql.ErrNoRows:
@@ -71,11 +69,11 @@ func (r *RefreshTokenDb) FindByField(field string, value interface{}) (*models.R
 }
 
 // FindByUserID returns a refresh by userID
-func (r *RefreshTokenDb) FindByUserID(userID int64) (*models.RefreshToken, error) {
+func (r *RefreshTokenDb) FindByUserID(userID int64) (*models.Token, error) {
 	return r.FindByField("user_id", userID)
 }
 
 // FindByRefreshToken returns a refresh by RefreshToken
-func (r *RefreshTokenDb) FindByRefreshToken(token string) (*models.RefreshToken, error) {
+func (r *RefreshTokenDb) FindByToken(token string) (*models.Token, error) {
 	return r.FindByField("token", token)
 }

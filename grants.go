@@ -170,7 +170,7 @@ func grantTypeCode(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 }
 
 // GrantTypeRefresh аутентификация по refresh токену
-func grantTypeRefresh(ctx context.Context, w http.ResponseWriter, r *http.Request) (*models.User, *models.RefreshToken, bool) {
+func grantTypeRefresh(ctx context.Context, w http.ResponseWriter, r *http.Request) (*models.User, *models.Token, bool) {
 	refresh := r.FormValue("refresh")
 
 	if refresh == "" {
@@ -187,16 +187,38 @@ func grantTypeRefresh(ctx context.Context, w http.ResponseWriter, r *http.Reques
 		return nil, nil, false
 	}
 
-	// Обновляем старый refresh token
-	updatedRefresh, err := tokgen.ChangeRefreshToken(ctx, refresh)
+	// Вытаскиваем tokenGenerator из ctx
+	tokenGenerator, ok := tokgen.FromContextWithTokenGenerator(ctx)
+	if ok == false {
+		log.Printf("TokenGenerator is not found")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return nil, nil, false
+	}
+
+	// Ищмем указанный токен
+	token, err := tokenGenerator.FindToken(ctx, refresh)
 	if err != nil {
-		log.Printf("Error updating: %v, refresh token: %s", err, refresh)
+		log.Printf("Error finding token: %v, token: %s", err, refresh)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return nil, nil, false
+	}
+
+	// Если токен не найден
+	if token == nil {
+		log.Printf("Token is not found: %v, token: %s", err, refresh)
+		http.Error(w, "Access denied", http.StatusForbidden)
+		return nil, nil, false
+	}
+
+	// Проверяем валидность токена
+	if token.Valid() == false {
+		log.Printf("Token is not valid: token: %s", refresh)
 		http.Error(w, "Access denied", http.StatusForbidden)
 		return nil, nil, false
 	}
 
 	// Получаем информацию о пользователе из базы данных
-	user, err := userStore.FindByUserID(updatedRefresh.UserID)
+	user, err := userStore.FindByUserID(token.UserID)
 	if err != nil {
 		log.Printf("Error finding user: %v\n", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -209,5 +231,13 @@ func grantTypeRefresh(ctx context.Context, w http.ResponseWriter, r *http.Reques
 		return nil, nil, false
 	}
 
-	return user, updatedRefresh, true
+	// Обновляем токен
+	newToken, err := tokenGenerator.UpdateToken(ctx, token)
+	if err != nil {
+		log.Printf("Error updating refresh token: %v token: %s", err, refresh)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return nil, nil, false
+	}
+
+	return user, newToken, true
 }
