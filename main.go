@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 
+	"audiolang.com/auth-server/notify"
+	"audiolang.com/auth-server/senders"
 	"audiolang.com/auth-server/store"
 	"audiolang.com/auth-server/tokgen"
 
@@ -18,14 +21,24 @@ import (
 )
 
 var (
-	database           *sql.DB
-	userDb             store.UserStore
-	refreshTokenDb     store.TokenStore
-	tempTokenDb        store.TokenStore
+	database *sql.DB
+
+	// Доступ к хранилищу
+	userDb         store.UserStore
+	refreshTokenDb store.TokenStore
+	tempTokenDb    store.TokenStore
+
+	// Генерация jwt токенов
 	jwtGen             *tokgen.JwtAccessGenerate
-	jwtCnf             *tokgen.Config
+	jwtConfig          tokgen.Config
 	tokenGenerator     *tokgen.TokenGenerator
 	tempTokenGenerator *tokgen.TokenGenerator
+
+	// Рассылка уведомлений
+	emailConfig             senders.EmailConfig
+	emailSender             *senders.EmailSender
+	accountActivateTemplate *template.Template
+	emailNotificator        *notify.EmailNotificator
 )
 
 func init() {
@@ -72,9 +85,22 @@ func init() {
 		log.Fatalf("Error reading private key: %v\n", err)
 	}
 
-	jwtCnf = &tokgen.Config{
+	jwtConfig = tokgen.Config{
 		Expires:    3600,
 		PrivateKey: pKey,
+	}
+
+	emailConfig = senders.EmailConfig{
+		Host:     "email-smtp.eu-west-1.amazonaws.com",
+		Port:     587,
+		Login:    "AKIAIFNXYQAACAXA3XTQ",
+		Password: "AkRc59lK6KQztv8Y9710ereFE/tmu0XTaT1Sz1mVJ6rh",
+	}
+
+	// Загрузим template содержимого активации аккаунта
+	accountActivateTemplate, err = template.ParseFiles("./notify/templates/account_activation.html")
+	if err != nil {
+		log.Fatalf("Error reading notify template: %v", err)
 	}
 }
 
@@ -84,9 +110,12 @@ func main() {
 	refreshTokenDb = store.NewRefreshTokenDb(database)
 	tempTokenDb = store.NewTempTokenDb(database)
 
-	jwtGen = jwtCnf.New()
+	jwtGen = jwtConfig.New()
 	tokenGenerator = tokgen.NewTokenGenerator(time.Duration(time.Hour * 24 * 10))
 	tempTokenGenerator = tokgen.NewTokenGenerator(time.Duration(time.Hour * 24))
+
+	emailSender = emailConfig.NewEmailSender("notify@audiolang.com")
+	emailNotificator = notify.NewEmailNotificator(emailSender)
 
 	router := httprouter.New()
 	router.POST("/token", HandleToken)

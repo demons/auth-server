@@ -96,10 +96,11 @@ func HandleSignUp(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 
-	// TODO: Нужно отправить письмо с подтверждением email, пользователю на почту
+	// Отправляем по почте код активации для подтверждения аккаунта
+	go emailNotificator.SendActivationCode(accountActivateTemplate, newUser.Email.String, token.Token)
 
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte("User registered successfully. " + token.Token))
+	w.Write([]byte("User registered successfully"))
 }
 
 // HandleToken returns access token
