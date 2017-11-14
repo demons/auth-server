@@ -22,6 +22,11 @@ func NewEmailNotificator(sender *senders.EmailSender) *EmailNotificator {
 
 // SendActivationCode отправить код активации пользователю
 func (n EmailNotificator) SendActivationCode(template *template.Template, to string, code string) {
+	if template == nil {
+		log.Println("Error sending email. Template is nil")
+		return
+	}
+
 	data := struct {
 		Link string
 	}{
