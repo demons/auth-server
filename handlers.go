@@ -68,12 +68,15 @@ func HandlePasswordReset(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	ctx = store.NewContextWithTokenStore(ctx, tempTokenDb)
 
 	// Генерируем временный токен доступа
-	token, err := tempTokenGenerator.CreateToken(ctx)
+	token, err := tempTokenGenerator.CreateToken(ctx, []string{"password_reset"})
 	if err != nil {
 		log.Printf("Error creating a temp token: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
+
+	// Установим токену права на сброс пароля
+	token.SetScope("reset_password")
 
 	// Отправляем по почте код активации для подтверждения аккаунта
 	template := messageTemplates["resetPassword"]
@@ -161,7 +164,8 @@ func HandleSignUp(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	// Устанавливаем в context хранилище временных токенов
 	ctx = store.NewContextWithTokenStore(ctx, tempTokenDb)
 
-	token, err := tempTokenGenerator.CreateToken(ctx)
+	// Установим токену права на активацию аккаунта
+	token, err := tempTokenGenerator.CreateToken(ctx, []string{"activate_account"})
 	if err != nil {
 		log.Printf("Error creating a temp token: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -239,7 +243,7 @@ func HandleToken(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	// Если refresh token не существует (grant_type != refresh), то генерируем новый
 	if refreshToken == nil {
 		// Генерируем новый refresh token
-		newRefreshToken, err := tokenGenerator.CreateToken(ctx)
+		newRefreshToken, err := tokenGenerator.CreateToken(ctx, []string{"refresh_token"})
 		if err != nil {
 			http.Error(w, "Internal server error", http.StatusInternalServerError)
 			return

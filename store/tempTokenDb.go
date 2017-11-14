@@ -20,7 +20,7 @@ func NewTempTokenDb(database *sql.DB) *TempTokenDb {
 
 // Insert добавляет новый temp token в базу данных
 func (t *TempTokenDb) Insert(token *models.Token) error {
-	_, err := t.db.Exec("INSERT INTO tokens (user_id, token, expires) VALUES ($1, $2, $3)", token.UserID, token.Token, token.Expires)
+	_, err := t.db.Exec("INSERT INTO tokens (user_id, token, expires, scopes) VALUES ($1, $2, $3, $4)", token.UserID, token.Token, token.Expires, token.Scopes)
 	if err != nil {
 		return err
 	}
@@ -30,7 +30,7 @@ func (t *TempTokenDb) Insert(token *models.Token) error {
 
 // Update обновляет refresh token с указанным token
 func (t *TempTokenDb) Update(token string, newToken *models.Token) error {
-	_, err := t.db.Exec("UPDATE tokens SET token=$1, expires=$2, updated_at=(now() at time zone 'utc') WHERE token=$3", newToken.Token, newToken.Expires, token)
+	_, err := t.db.Exec("UPDATE tokens SET token=$1, expires=$2, scopes=$3, updated_at=(now() at time zone 'utc') WHERE token=$4", newToken.Token, newToken.Expires, newToken.Scopes, token)
 	if err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (t *TempTokenDb) Update(token string, newToken *models.Token) error {
 func (t *TempTokenDb) FindByField(field string, value interface{}) (*models.Token, error) {
 	var token models.Token
 
-	err := t.db.QueryRow("SELECT user_id, token, expires FROM tokens WHERE "+field+"=$1", value).Scan(&token.UserID, &token.Token, &token.Expires)
+	err := t.db.QueryRow("SELECT user_id, token, expires, scopes FROM tokens WHERE "+field+"=$1", value).Scan(&token.UserID, &token.Token, &token.Expires, &token.Scopes)
 
 	switch {
 	case err == sql.ErrNoRows:

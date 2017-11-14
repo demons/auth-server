@@ -58,7 +58,7 @@ func (g TokenGenerator) FindToken(ctx context.Context, token string) (*models.To
 }
 
 // CreateToken создает новый токен, если его еще не существует в хранилище
-func (g TokenGenerator) CreateToken(ctx context.Context) (*models.Token, error) {
+func (g TokenGenerator) CreateToken(ctx context.Context, scopes []string) (*models.Token, error) {
 	// Получить хранилище токенов из ctx
 	tokenStore, ok := store.FromContextWithTokenStore(ctx)
 	if ok == false {
@@ -75,6 +75,7 @@ func (g TokenGenerator) CreateToken(ctx context.Context) (*models.Token, error) 
 
 	// Генерируем новый токен для этого пользователя
 	newToken := models.NewToken(user.ID, g.expireIn)
+	newToken.SetScopes(scopes)
 
 	// Сохраняем токен в хранилище
 	err := tokenStore.Insert(newToken)
