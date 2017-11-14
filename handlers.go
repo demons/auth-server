@@ -16,6 +16,78 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+// HandlePasswordReset восстановление пароля
+func HandlePasswordReset(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	email := r.PostFormValue("email")
+
+	if email == "" {
+		log.Println("Email is empty")
+		http.Error(w, "Email is required", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем формат указанного email
+	err := utils.VerifyEmailFormat(email)
+	if err != nil {
+		log.Printf("Invalid email format: %v", err)
+		http.Error(w, "Invalid email fromat", http.StatusBadRequest)
+		return
+	}
+
+	// TODO: Нужно ограничить количество отправленных подрад писем
+
+	// Выполняем поиск пользователя по указанному email
+	findedUser, err := userDb.FindByEmail(email)
+	if err != nil {
+		log.Printf("Error finding user: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if findedUser == nil {
+		// Такого пользователя не существует
+		log.Printf("User is not found")
+		http.Error(w, "User is not found", http.StatusBadRequest)
+		return
+	}
+
+	// Проверим тип аккаунта
+	if findedUser.IsSocial == true {
+		// Нельзя восстановить пароль к аккаунту, созданному с помощью соц. сетей
+		log.Println("Password reset failed. Account is not native")
+		http.Error(w, "Server internal error", http.StatusInternalServerError)
+		return
+	}
+
+	ctx := context.Background()
+
+	// Устанавливаем в context пользователея
+	ctx = models.NewContextWithUser(ctx, findedUser)
+
+	// Устанавливаем в context хранилище временных токенов
+	ctx = store.NewContextWithTokenStore(ctx, tempTokenDb)
+
+	// Генерируем временный токен доступа
+	token, err := tempTokenGenerator.CreateToken(ctx)
+	if err != nil {
+		log.Printf("Error creating a temp token: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Отправляем по почте код активации для подтверждения аккаунта
+	template := messageTemplates["resetPassword"]
+	go emailNotificator.SendResetPasswordMessage(template, findedUser.Email.String, token.Token)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("A letter has been sent to the e-mail to reset the password"))
+}
+
+// HandlePasswordChange смена пароля
+func HandlePasswordChange(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
+}
+
 // HandleSignUp регистрация нового пользователя
 func HandleSignUp(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	email := r.FormValue("email")
@@ -97,7 +169,8 @@ func HandleSignUp(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 
 	// Отправляем по почте код активации для подтверждения аккаунта
-	go emailNotificator.SendActivationCode(accountActivateTemplate, newUser.Email.String, token.Token)
+	template := messageTemplates["activateAccount"]
+	go emailNotificator.SendActivationCode(template, newUser.Email.String, token.Token)
 
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte("User registered successfully"))

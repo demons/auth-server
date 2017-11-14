@@ -35,11 +35,17 @@ var (
 	tempTokenGenerator *tokgen.TokenGenerator
 
 	// Рассылка уведомлений
-	emailConfig             senders.EmailConfig
-	emailSender             *senders.EmailSender
-	accountActivateTemplate *template.Template
-	emailNotificator        *notify.EmailNotificator
+	emailConfig      senders.EmailConfig
+	emailSender      *senders.EmailSender
+	emailNotificator *notify.EmailNotificator
 )
+
+// Шаблоны для электронных писем
+var messageTemplatePaths = map[string]string{
+	"activateAccount": "./notify/templates/activate_account.html",
+	"resetPassword":   "./notify/templates/reset_password.html",
+}
+var messageTemplates = make(map[string]*template.Template, 3)
 
 func init() {
 	var err error
@@ -97,10 +103,13 @@ func init() {
 		Password: "AkRc59lK6KQztv8Y9710ereFE/tmu0XTaT1Sz1mVJ6rh",
 	}
 
-	// Загрузим template содержимого активации аккаунта
-	accountActivateTemplate, err = template.ParseFiles("./notify/templates/account_activation.html")
-	if err != nil {
-		log.Fatalf("Error reading notify template: %v", err)
+	// Загрузим шаблоны для текстов писем
+	for k, v := range messageTemplatePaths {
+		parsedTemplate, err := template.ParseFiles(v)
+		if err != nil {
+			log.Fatalf("Error reading notify template: %v", err)
+		}
+		messageTemplates[k] = parsedTemplate
 	}
 }
 
@@ -118,17 +127,24 @@ func main() {
 	emailNotificator = notify.NewEmailNotificator(emailSender)
 
 	router := httprouter.New()
+
+	// PUBLIC APIs
 	router.POST("/token", HandleToken)
 
 	// Регистрация нового пользователя
 	router.POST("/account/signup", HandleSignUp)
 
 	// Сброс пароля
-	// router.POST("/account/reset", HandleReset)
+	router.POST("/account/password/reset", HandlePasswordReset)
+
+	// PRIVATE APIs
+
+	// TODO: Закрытые APIs должены быть доступены только аутентифицированным пользователям
 
 	// Смена пароля
-	// router.POST("/account/password", HandleChangePassword)
+	router.POST("/account/password/change", HandlePasswordChange)
 
-	fmt.Println("Hello")
+	// Запускаем сервер
+	fmt.Println("Server started...", "localhost:8000")
 	log.Fatal(http.ListenAndServe("localhost:8000", router))
 }
