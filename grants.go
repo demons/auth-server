@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"log"
 	"net/http"
@@ -38,7 +37,7 @@ import (
 // Реализации аутентификации
 
 // GrantTypePassword аутентификация пользователя по паролю
-func grantTypePassword(ctx context.Context, w http.ResponseWriter, r *http.Request) (*models.User, bool) {
+func grantTypePassword(w http.ResponseWriter, r *http.Request) (*models.User, bool) {
 	// Извлекаем из тела запроса email и password
 	email := r.FormValue("email")
 	password := r.FormValue("password")
@@ -54,6 +53,8 @@ func grantTypePassword(ctx context.Context, w http.ResponseWriter, r *http.Reque
 		http.Error(w, "Password is required", http.StatusBadRequest)
 		return nil, false
 	}
+
+	ctx := r.Context()
 
 	// Вытаскиваем user store из ctx
 	userStore, ok := store.FromContextWithUserStore(ctx)
@@ -91,7 +92,7 @@ func grantTypePassword(ctx context.Context, w http.ResponseWriter, r *http.Reque
 }
 
 // GrantTypeCode аутентификация пользователя по коду, который вернул сервер соц. сети
-func grantTypeCode(ctx context.Context, w http.ResponseWriter, r *http.Request) (*models.User, bool) {
+func grantTypeCode(w http.ResponseWriter, r *http.Request) (*models.User, bool) {
 	// Найти указанный провайдер
 	// Обменять code на accessToken
 	// Получить профиль пользователя
@@ -108,6 +109,16 @@ func grantTypeCode(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	if code == "" {
 		log.Println("Code is required")
 		http.Error(w, "Code is required", http.StatusBadRequest)
+		return nil, false
+	}
+
+	ctx := r.Context()
+
+	// Вытаскиваем user store из ctx
+	userStore, ok := store.FromContextWithUserStore(ctx)
+	if ok == false {
+		log.Printf("User store is not found")
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return nil, false
 	}
 
@@ -131,14 +142,6 @@ func grantTypeCode(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 	userProfile, err := provider.GetUserProfile(accessToken)
 	if err != nil {
 		log.Printf("Error getting a user profile: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return nil, false
-	}
-
-	// Вытаскиваем user store из ctx
-	userStore, ok := store.FromContextWithUserStore(ctx)
-	if ok == false {
-		log.Printf("User store is not found")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return nil, false
 	}
@@ -170,7 +173,7 @@ func grantTypeCode(ctx context.Context, w http.ResponseWriter, r *http.Request) 
 }
 
 // GrantTypeRefresh аутентификация по refresh токену
-func grantTypeRefresh(ctx context.Context, w http.ResponseWriter, r *http.Request) (*models.User, *models.Token, bool) {
+func grantTypeRefresh(w http.ResponseWriter, r *http.Request) (*models.User, *models.Token, bool) {
 	refresh := r.FormValue("refresh")
 
 	if refresh == "" {
@@ -178,6 +181,8 @@ func grantTypeRefresh(ctx context.Context, w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Refresh is required", http.StatusBadRequest)
 		return nil, nil, false
 	}
+
+	ctx := r.Context()
 
 	// Вытаскиваем user store из ctx
 	userStore, ok := store.FromContextWithUserStore(ctx)

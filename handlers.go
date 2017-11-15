@@ -209,11 +209,11 @@ func HandleToken(w http.ResponseWriter, r *http.Request, params httprouter.Param
 
 	switch grantType {
 	case "password":
-		user, ok = grantTypePassword(ctx, w, r)
+		user, ok = grantTypePassword(w, r)
 	case "code":
-		user, ok = grantTypeCode(ctx, w, r)
+		user, ok = grantTypeCode(w, r)
 	case "refresh":
-		user, refreshToken, ok = grantTypeRefresh(ctx, w, r)
+		user, refreshToken, ok = grantTypeRefresh(w, r)
 
 	default:
 		{
