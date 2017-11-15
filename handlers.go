@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"log"
@@ -59,7 +58,7 @@ func HandlePasswordReset(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		return
 	}
 
-	ctx := context.Background()
+	ctx := r.Context()
 
 	// Устанавливаем в context пользователея
 	ctx = models.NewContextWithUser(ctx, findedUser)
@@ -156,13 +155,15 @@ func HandleSignUp(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 	newUser.ID = userID
 
-	ctx := context.Background()
+	ctx := r.Context()
 
 	// Устанавливаем в context пользователея
 	ctx = models.NewContextWithUser(ctx, &newUser)
 
 	// Устанавливаем в context хранилище временных токенов
 	ctx = store.NewContextWithTokenStore(ctx, tempTokenDb)
+
+	r = r.WithContext(ctx)
 
 	// Установим токену права на активацию аккаунта
 	token, err := tempTokenGenerator.CreateToken(ctx, []string{"activate_account"})
@@ -188,7 +189,7 @@ func HandleToken(w http.ResponseWriter, r *http.Request, params httprouter.Param
 	grantType := r.FormValue("grant_type")
 	log.Println("get token with grant_type:", grantType)
 
-	ctx := context.Background()
+	ctx := r.Context()
 
 	// Устанавливаем в context хранилище пользователей
 	ctx = store.NewContextWithUserStore(ctx, userDb)
@@ -198,6 +199,8 @@ func HandleToken(w http.ResponseWriter, r *http.Request, params httprouter.Param
 
 	// Устанавливаем в context генератор токенов
 	ctx = tokgen.NewContextWithTokenGenerator(ctx, tokenGenerator)
+
+	r = r.WithContext(ctx)
 
 	// Инициализируем нового пользователя
 	var user *models.User
@@ -211,6 +214,7 @@ func HandleToken(w http.ResponseWriter, r *http.Request, params httprouter.Param
 		user, ok = grantTypeCode(ctx, w, r)
 	case "refresh":
 		user, refreshToken, ok = grantTypeRefresh(ctx, w, r)
+
 	default:
 		{
 			log.Println("This grant type is not supported")
@@ -225,6 +229,8 @@ func HandleToken(w http.ResponseWriter, r *http.Request, params httprouter.Param
 
 	// Устанавливаем в context пользователя
 	ctx = models.NewContextWithUser(ctx, user)
+
+	r = r.WithContext(ctx)
 
 	// Генерируем токен доступа для пользователя
 	accessToken, err := jwtGen.Token(ctx)
