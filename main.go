@@ -32,6 +32,7 @@ var (
 	jwtGen             *tokgen.JwtAccessGenerate
 	jwtConfig          tokgen.Config
 	tokenGenerator     *tokgen.TokenGenerator
+	tokenChecker       *tokgen.JwtAccessChecker
 	tempTokenGenerator *tokgen.TokenGenerator
 
 	// Рассылка уведомлений
@@ -91,10 +92,17 @@ func init() {
 		log.Fatalf("Error reading private key: %v\n", err)
 	}
 
+	pubKey, err := ioutil.ReadFile("./secrets/app.rsa.pub")
+	if err != nil {
+		log.Fatalf("Error reading public key: %v", err)
+	}
+
 	jwtConfig = tokgen.Config{
 		Expires:    3600,
 		PrivateKey: pKey,
 	}
+
+	tokenChecker = tokgen.NewJwtAccessChecker(pubKey)
 
 	emailConfig = senders.EmailConfig{
 		Host:     "email-smtp.eu-west-1.amazonaws.com",
@@ -142,7 +150,7 @@ func main() {
 	// TODO: Закрытые APIs должены быть доступены только аутентифицированным пользователям
 
 	// Смена пароля
-	router.POST("/account/password/change", HandlePasswordChange)
+	router.POST("/account/password/change", Auth(HandlePasswordChange))
 
 	// Запускаем сервер
 	fmt.Println("Server started...", "localhost:8000")
