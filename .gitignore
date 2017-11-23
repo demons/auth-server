@@ -2,3 +2,4 @@
 .code/
 secrets/
 config.json
+*.exe
