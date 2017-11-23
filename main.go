@@ -153,6 +153,6 @@ func main() {
 	router.POST("/account/password/change", Auth(HandlePasswordChange))
 
 	// Запускаем сервер
-	fmt.Println("Server started...", "localhost:8000")
-	log.Fatal(http.ListenAndServe("localhost:8000", router))
+	fmt.Println("Server started...", ":8000")
+	log.Fatal(http.ListenAndServe(":8000", router))
 }
