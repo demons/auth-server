@@ -2,11 +2,14 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
+	"flag"
 	"fmt"
 	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/julienschmidt/httprouter"
@@ -21,6 +24,9 @@ import (
 )
 
 var (
+	configPath string
+	config     *Config
+
 	database *sql.DB
 
 	// Доступ к хранилищу
@@ -49,66 +55,19 @@ var messageTemplatePaths = map[string]string{
 var messageTemplates = make(map[string]*template.Template, 3)
 
 func init() {
-	var err error
-	// Инициализируем базу данных
-	database, err = sql.Open("postgres", "host='192.168.99.100' port=5432 user=postgres password=docker dbname=db sslmode=disable")
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	// Создадим таблицу пользователей, если она отсутствует
-	query, err := ioutil.ReadFile("./sql/create_users_table.sql")
-	if err != nil {
-		log.Fatalf("Error reading sql: %v\n", err)
-	}
-	_, err = database.Exec(string(query))
-	if err != nil {
-		log.Fatalf("Error executing sql: %v\n", err)
-	}
+	flag.StringVar(&configPath, "config", "config.json", "path to config file")
 
-	// Создадим таблицу refresh токенов, если она отсутствует
-	query, err = ioutil.ReadFile("./sql/create_reftoks_table.sql")
-	if err != nil {
-		log.Fatalf("Error reading sql: %v\n", err)
-	}
-	_, err = database.Exec(string(query))
-	if err != nil {
-		log.Fatalf("Error executing sql: %v\n", err)
-	}
+	config = loadConfiguration(configPath)
 
-	// Создадим таблицу временных токенов, если она отсутствует
-	query, err = ioutil.ReadFile("./sql/create_tokens_table.sql")
-	if err != nil {
-		log.Fatalf("Error reading sql: %v\n", err)
-	}
-	_, err = database.Exec(string(query))
-	if err != nil {
-		log.Fatalf("Error executing sql: %v\n", err)
-	}
-
-	// Считываем приватный ключ
-	pKey, err := ioutil.ReadFile("./secrets/app.rsa")
-	if err != nil {
-		log.Fatalf("Error reading private key: %v\n", err)
-	}
-
-	pubKey, err := ioutil.ReadFile("./secrets/app.rsa.pub")
-	if err != nil {
-		log.Fatalf("Error reading public key: %v", err)
-	}
-
-	jwtConfig = tokgen.Config{
-		Expires:    3600,
-		PrivateKey: pKey,
-	}
-
-	tokenChecker = tokgen.NewJwtAccessChecker(pubKey)
+	databaseInit()
+	tokensInit()
 
 	emailConfig = senders.EmailConfig{
-		Host:     "email-smtp.eu-west-1.amazonaws.com",
-		Port:     587,
-		Login:    "AKIAIFNXYQAACAXA3XTQ",
-		Password: "AkRc59lK6KQztv8Y9710ereFE/tmu0XTaT1Sz1mVJ6rh",
+		Host:     config.Email.Host,
+		Port:     config.Email.Port,
+		Login:    config.Email.Login,
+		Password: config.Email.Password,
 	}
 
 	// Загрузим шаблоны для текстов писем
@@ -153,6 +112,96 @@ func main() {
 	router.POST("/account/password/change", Auth(HandlePasswordChange))
 
 	// Запускаем сервер
-	fmt.Println("Server started...", ":8000")
-	log.Fatal(http.ListenAndServe(":8000", router))
+	fmt.Println("Server started...", fmt.Sprintf("%s:%d", config.Host, config.Port))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", config.Host, config.Port), router))
+}
+
+// Config for configuration application
+type Config struct {
+	Host  string `json:"host"`
+	Port  int    `json:"port"`
+	Email struct {
+		Host     string `json:"host"`
+		Port     int    `json:"port"`
+		Login    string `json:"login"`
+		Password string `json:"password"`
+	} `json:"email"`
+	Database struct {
+		Host     string `json:"host"`
+		Port     int    `json:"port"`
+		Login    string `json:"login"`
+		Password string `json:"password"`
+		DbName   string `json:"db"`
+	} `json:"database"`
+}
+
+func loadConfiguration(file string) *Config {
+	var config Config
+	configFile, err := os.Open(file)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	defer configFile.Close()
+	jsonParser := json.NewDecoder(configFile)
+	jsonParser.Decode(&config)
+	return &config
+}
+
+func databaseInit() {
+	var err error
+	// Инициализируем базу данных
+	database, err = sql.Open("postgres", fmt.Sprintf("host='%s' port=%d user=%s password=%s dbname=%s sslmode=disable", config.Database.Host, config.Database.Port, config.Database.Login, config.Database.Password, config.Database.DbName))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Создадим таблицу пользователей, если она отсутствует
+	query, err := ioutil.ReadFile("./sql/create_users_table.sql")
+	if err != nil {
+		log.Fatalf("Error reading sql: %v\n", err)
+	}
+	_, err = database.Exec(string(query))
+	if err != nil {
+		log.Fatalf("Error executing sql: %v\n", err)
+	}
+
+	// Создадим таблицу refresh токенов, если она отсутствует
+	query, err = ioutil.ReadFile("./sql/create_reftoks_table.sql")
+	if err != nil {
+		log.Fatalf("Error reading sql: %v\n", err)
+	}
+	_, err = database.Exec(string(query))
+	if err != nil {
+		log.Fatalf("Error executing sql: %v\n", err)
+	}
+
+	// Создадим таблицу временных токенов, если она отсутствует
+	query, err = ioutil.ReadFile("./sql/create_tokens_table.sql")
+	if err != nil {
+		log.Fatalf("Error reading sql: %v\n", err)
+	}
+	_, err = database.Exec(string(query))
+	if err != nil {
+		log.Fatalf("Error executing sql: %v\n", err)
+	}
+}
+
+func tokensInit() {
+	// Считываем приватный ключ
+	pKey, err := ioutil.ReadFile("./secrets/app.rsa")
+	if err != nil {
+		log.Fatalf("Error reading private key: %v\n", err)
+	}
+
+	pubKey, err := ioutil.ReadFile("./secrets/app.rsa.pub")
+	if err != nil {
+		log.Fatalf("Error reading public key: %v", err)
+	}
+
+	jwtConfig = tokgen.Config{
+		Expires:    3600,
+		PrivateKey: pKey,
+	}
+
+	tokenChecker = tokgen.NewJwtAccessChecker(pubKey)
 }
