@@ -87,7 +87,61 @@ func HandlePasswordReset(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 
 // HandlePasswordChange смена пароля
 func HandlePasswordChange(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	// Извлеч пользователя из контекста
+	ctx := r.Context()
 
+	user, ok := models.FromContextWithUser(ctx)
+	if ok != true {
+		log.Printf("Error reading user from context")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Считать старый пароль и новый
+	oldPassword := r.FormValue("oldPassword")
+	if oldPassword == "" {
+		log.Println("OldPassword is empty")
+		http.Error(w, "OldPassword is required", http.StatusBadRequest)
+		return
+	}
+
+	newPassword := r.FormValue("newPassword")
+	if newPassword == "" {
+		log.Println("NewPassword is empty")
+		http.Error(w, "NewPassword is required", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем верный ли старый пароль
+	err := utils.VerifyPassword(user.Hash.String, user.Salt.String, oldPassword)
+	if err != nil {
+		log.Printf("Incorrect password: %v\n", err)
+		http.Error(w, "Incorrect login or password", http.StatusBadRequest)
+		return
+	}
+
+	// Изменить пароль
+
+	// Создаем хэш пароля
+	hash, salt, err := utils.HashPasswordWithSalt(newPassword)
+	if err != nil {
+		log.Printf("Error creating hash password: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	user.Hash = sql.NullString{String: hash, Valid: true}
+	user.Salt = sql.NullString{String: salt, Valid: true}
+
+	// Создаем нового пользователя
+	err = userDb.UpdatePassword(user)
+	if err != nil {
+		log.Printf("Error creating a user: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Password changed successfully"))
 }
 
 // HandleSignUp регистрация нового пользователя
