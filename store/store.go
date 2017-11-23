@@ -21,6 +21,7 @@ const (
 // UserStore для работы с хранилищем пользователей
 type UserStore interface {
 	Insert(*models.User) (int64, error)
+	UpdatePassword(*models.User) error
 	FindByField(string, interface{}) (*models.User, error)
 	FindByEmail(string) (*models.User, error)
 	FindByUserID(int64) (*models.User, error)

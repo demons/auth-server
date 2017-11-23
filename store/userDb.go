@@ -29,6 +29,16 @@ func (u *UserDb) Insert(user *models.User) (int64, error) {
 	return userID, nil
 }
 
+// UpdatePassword обновляет hash и salt
+func (u *UserDb) UpdatePassword(user *models.User) error {
+	_, err := u.db.Exec("UPDATE users SET hash=$1, salt=$2 WHERE id=$3", user.Hash, user.Salt, user.ID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // FindByField выполняет поиск по указанному полю
 func (u *UserDb) FindByField(field string, value interface{}) (*models.User, error) {
 	var user models.User
