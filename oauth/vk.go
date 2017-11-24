@@ -14,7 +14,7 @@ import (
 
 // TODO: Сделать загрузку этих данных из общего конфига
 var config = &oauth2.Config{
-	RedirectURL:  "http://localhost:3000/vk-auth",
+	RedirectURL:  "http://audiolang.com/vk-auth",
 	ClientID:     "6163381",
 	ClientSecret: "jeBgF2a9ynznseZPfeqz",
 	Scopes:       []string{""},
