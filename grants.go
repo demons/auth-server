@@ -151,7 +151,13 @@ func grantTypeCode(w http.ResponseWriter, r *http.Request) (*models.User, bool) 
 	// Ищем пользователя в базе данных по SID (social id = providerName:ID)
 	user, err := userStore.FindBySID(sid)
 	if err != nil {
-		// Пользователь не найден, нужно создать нового (не факт конечно, что ошибка вызвана из-за того, что пользователь не найден, а не из-за недоступности базы данных) ПОДУМАЙ
+		log.Printf("Error finding a user: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return nil, false
+	}
+
+	if user == nil {
+		// Пользователь не найден, нужно создать нового
 		newUser := models.User{
 			SID:      sql.NullString{String: sid, Valid: true},
 			Name:     sql.NullString{String: userProfile.Name, Valid: true},
