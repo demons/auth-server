@@ -90,7 +90,7 @@ func main() {
 	tokenGenerator = tokgen.NewTokenGenerator(time.Duration(time.Hour * 24 * 10))
 	tempTokenGenerator = tokgen.NewTokenGenerator(time.Duration(time.Hour * 24))
 
-	emailSender = emailConfig.NewEmailSender("notify@audiolang.com")
+	emailSender = emailConfig.NewEmailSender(config.Email.From)
 	emailNotificator = notify.NewEmailNotificator(emailSender)
 
 	router := httprouter.New()
@@ -125,6 +125,7 @@ type Config struct {
 		Port     int    `json:"port"`
 		Login    string `json:"login"`
 		Password string `json:"password"`
+		From     string `json:"from"`
 	} `json:"email"`
 	Database struct {
 		Host     string `json:"host"`
@@ -133,6 +134,8 @@ type Config struct {
 		Password string `json:"password"`
 		DbName   string `json:"db"`
 	} `json:"database"`
+	PrivateKey string `json:"private_key"`
+	PublicKey  string `json:"public_key"`
 }
 
 func loadConfiguration(file string) *Config {
@@ -188,12 +191,12 @@ func databaseInit() {
 
 func tokensInit() {
 	// Считываем приватный ключ
-	pKey, err := ioutil.ReadFile("./secrets/app.rsa")
+	pKey, err := ioutil.ReadFile(config.PrivateKey)
 	if err != nil {
 		log.Fatalf("Error reading private key: %v\n", err)
 	}
 
-	pubKey, err := ioutil.ReadFile("./secrets/app.rsa.pub")
+	pubKey, err := ioutil.ReadFile(config.PublicKey)
 	if err != nil {
 		log.Fatalf("Error reading public key: %v", err)
 	}
