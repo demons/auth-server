@@ -42,8 +42,8 @@ func (n EmailNotificator) SendActivationCode(template *template.Template, to str
 
 	// Создаем письмо
 	mail := senders.Mail{
-		From:     "notify@audiolang.com",
-		FromDesc: "Audiolang",
+		From:     n.sender.From,
+		FromDesc: n.sender.FromDesc,
 		Subject:  "Активация аккаунта",
 	}
 	mail.SetHTMLext(buf.String())
@@ -77,8 +77,8 @@ func (n EmailNotificator) SendResetPasswordMessage(template *template.Template, 
 
 	// Создаем письмо
 	mail := senders.Mail{
-		From:     "notify@audiolang.com",
-		FromDesc: "Audiolang",
+		From:     n.sender.From,
+		FromDesc: n.sender.FromDesc,
 		Subject:  "Восстановление пароля",
 	}
 	mail.SetHTMLext(buf.String())

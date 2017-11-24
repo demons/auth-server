@@ -55,13 +55,18 @@ var messageTemplatePaths = map[string]string{
 var messageTemplates = make(map[string]*template.Template, 3)
 
 func init() {
+	var err error
 
 	flag.StringVar(&configPath, "config", "config.json", "path to config file")
+	flag.Parse()
 
-	config = loadConfiguration(configPath)
+	config, err = loadConfiguration(configPath)
+	if err != nil {
+		log.Fatalf("Error loading config from: %s, err: %v", configPath, err)
+	}
 
-	databaseInit()
-	tokensInit()
+	databaseInit(config)
+	tokensInit(config)
 
 	emailConfig = senders.EmailConfig{
 		Host:     config.Email.Host,
@@ -78,20 +83,20 @@ func init() {
 		}
 		messageTemplates[k] = parsedTemplate
 	}
-}
-
-func main() {
 
 	userDb = store.NewUserDb(database)
 	refreshTokenDb = store.NewRefreshTokenDb(database)
 	tempTokenDb = store.NewTempTokenDb(database)
 
 	jwtGen = jwtConfig.New()
-	tokenGenerator = tokgen.NewTokenGenerator(time.Duration(time.Hour * 24 * 10))
-	tempTokenGenerator = tokgen.NewTokenGenerator(time.Duration(time.Hour * 24))
+	tokenGenerator = tokgen.NewTokenGenerator(time.Duration(config.Token.RefreshExp))
+	tempTokenGenerator = tokgen.NewTokenGenerator(time.Duration(config.Token.TempExp))
 
-	emailSender = emailConfig.NewEmailSender(config.Email.From)
+	emailSender = emailConfig.NewEmailSender(config.Email.From, config.Email.FromDesc)
 	emailNotificator = notify.NewEmailNotificator(emailSender)
+}
+
+func main() {
 
 	router := httprouter.New()
 
@@ -126,6 +131,7 @@ type Config struct {
 		Login    string `json:"login"`
 		Password string `json:"password"`
 		From     string `json:"from"`
+		FromDesc string `json:"fromDesc"`
 	} `json:"email"`
 	Database struct {
 		Host     string `json:"host"`
@@ -134,28 +140,42 @@ type Config struct {
 		Password string `json:"password"`
 		DbName   string `json:"db"`
 	} `json:"database"`
-	PrivateKey string `json:"private_key"`
-	PublicKey  string `json:"public_key"`
+	Token struct {
+		PrivateKey string `json:"private_key"`
+		PublicKey  string `json:"public_key"`
+		AccessExp  int    `json:"access_exp"`
+		RefreshExp int    `json:"refresh_exp"`
+		TempExp    int    `json:"temp_exp"`
+	} `json:"token"`
 }
 
-func loadConfiguration(file string) *Config {
+func loadConfiguration(file string) (*Config, error) {
 	var config Config
+
+	log.Printf("Loading config from: %s", file)
+
 	configFile, err := os.Open(file)
 	if err != nil {
-		fmt.Println(err.Error())
+		return nil, fmt.Errorf("Error opening config file: %v", err)
 	}
 	defer configFile.Close()
 	jsonParser := json.NewDecoder(configFile)
-	jsonParser.Decode(&config)
-	return &config
+	err = jsonParser.Decode(&config)
+	if err != nil {
+		return nil, fmt.Errorf("Error decoding config file: %v", err)
+	}
+	return &config, nil
 }
 
-func databaseInit() {
+func databaseInit(config *Config) {
 	var err error
+
+	log.Println("Database init...")
+
 	// Инициализируем базу данных
-	database, err = sql.Open("postgres", fmt.Sprintf("host='%s' port=%d user=%s password=%s dbname=%s sslmode=disable", config.Database.Host, config.Database.Port, config.Database.Login, config.Database.Password, config.Database.DbName))
+	database, err = sql.Open("postgres", fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", config.Database.Host, config.Database.Port, config.Database.Login, config.Database.Password, config.Database.DbName))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error opening db connection: %v", err)
 	}
 
 	// Создадим таблицу пользователей, если она отсутствует
@@ -165,7 +185,7 @@ func databaseInit() {
 	}
 	_, err = database.Exec(string(query))
 	if err != nil {
-		log.Fatalf("Error executing sql: %v\n", err)
+		log.Fatalf("Error executing sql 1: %v\n", err)
 	}
 
 	// Создадим таблицу refresh токенов, если она отсутствует
@@ -189,20 +209,22 @@ func databaseInit() {
 	}
 }
 
-func tokensInit() {
+func tokensInit(config *Config) {
+	log.Println("Tokens init...")
+
 	// Считываем приватный ключ
-	pKey, err := ioutil.ReadFile(config.PrivateKey)
+	pKey, err := ioutil.ReadFile(config.Token.PrivateKey)
 	if err != nil {
 		log.Fatalf("Error reading private key: %v\n", err)
 	}
 
-	pubKey, err := ioutil.ReadFile(config.PublicKey)
+	pubKey, err := ioutil.ReadFile(config.Token.PublicKey)
 	if err != nil {
 		log.Fatalf("Error reading public key: %v", err)
 	}
 
 	jwtConfig = tokgen.Config{
-		Expires:    3600,
+		Expires:    time.Duration(config.Token.AccessExp),
 		PrivateKey: pKey,
 	}
 

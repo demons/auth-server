@@ -15,15 +15,17 @@ type EmailConfig struct {
 
 // EmailSender рассыльщик emil'ов
 type EmailSender struct {
-	config *EmailConfig
-	from   string
+	config   *EmailConfig
+	From     string
+	FromDesc string
 }
 
 // NewEmailSender создает EmailSender
-func (c *EmailConfig) NewEmailSender(from string) *EmailSender {
+func (c *EmailConfig) NewEmailSender(from string, fromDesc string) *EmailSender {
 	return &EmailSender{
-		config: c,
-		from:   from,
+		config:   c,
+		From:     from,
+		FromDesc: fromDesc,
 	}
 }
 
@@ -34,7 +36,7 @@ func (s EmailSender) Send(to string, msg []byte) error {
 
 	// Send email
 	serverName := fmt.Sprintf("%s:%d", s.config.Host, s.config.Port)
-	err := smtp.SendMail(serverName, auth, s.from, []string{to}, msg)
+	err := smtp.SendMail(serverName, auth, s.From, []string{to}, msg)
 
 	return err
 }
